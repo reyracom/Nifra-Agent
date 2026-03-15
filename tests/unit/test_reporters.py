@@ -129,8 +129,9 @@ class TestJSONReporter:
         assert parsed["exploit_chains"] == []
 
     def test_render_version_string(self):
+        from nifra import __version__
         parsed = json.loads(JSONReporter().render(_make_surface(), _make_result(), "app"))
-        assert "0.1.0" in parsed["nifra_version"]
+        assert parsed["nifra_version"] == __version__
 
     def test_write_creates_file(self, tmp_path):
         out = tmp_path / "report.json"

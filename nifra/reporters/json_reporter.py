@@ -3,6 +3,7 @@
 import json
 from pathlib import Path
 
+from nifra import __version__
 from nifra.graph.builder import AttackSurfaceGraph
 from nifra.reasoning.engine import ReasoningResult
 
@@ -17,7 +18,7 @@ class JSONReporter:
         project_name: str,
     ) -> str:
         data = {
-            "nifra_version": "0.1.0",
+            "nifra_version": __version__,
             "project": project_name,
             "risk_level": reasoning_result.risk_level,
             "summary": {

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from nifra import __version__
 from nifra.graph.builder import AttackSurfaceGraph
 from nifra.reasoning.engine import ExploitChain, ReasoningResult
 
@@ -65,7 +66,7 @@ class SARIFReporter:
         reporter.write(attack_surface, reasoning_result, "my-agent", Path("results.sarif"))
     """
 
-    NIFRA_VERSION = "0.2.0"
+    NIFRA_VERSION = __version__
 
     def render(
         self,

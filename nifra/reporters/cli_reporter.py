@@ -7,6 +7,7 @@ from rich.table import Table
 from rich.text import Text
 from rich import box
 
+from nifra import __version__
 from nifra.reasoning.engine import ExploitChain, ReasoningResult
 from nifra.graph.builder import AttackSurfaceGraph
 
@@ -51,7 +52,7 @@ class CLIReporter:
         result: ReasoningResult,
     ) -> None:
         self.console.print()
-        self.console.rule("[bold cyan]NIfra — AI Application Security Autopilot v0.1.0[/bold cyan]")
+        self.console.rule(f"[bold cyan]NIfra — AI Application Security Autopilot v{__version__}[/bold cyan]")
         self.console.print()
 
         table = Table(box=box.SIMPLE, show_header=False, padding=(0, 2))
