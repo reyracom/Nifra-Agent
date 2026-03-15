@@ -157,6 +157,17 @@ def report(
         else:
             sys.stdout.buffer.write(content.encode("utf-8"))
             sys.stdout.buffer.write(b"\n")
+
+    elif fmt == "sarif":
+        from nifra.reporters.sarif_reporter import SARIFReporter
+        reporter = SARIFReporter()
+        content = reporter.render_json(attack_surface, reasoning_result, project_name)
+        if output:
+            output.write_text(content, encoding="utf-8")
+            console.print(f"[green]Saved:[/green] {output}")
+        else:
+            sys.stdout.buffer.write(content.encode("utf-8"))
+            sys.stdout.buffer.write(b"\n")
     else:
-        console.print(f"[red]Unknown format:[/red] {format}. Choose: cli, json, html, markdown")
+        console.print(f"[red]Unknown format:[/red] {format}. Choose: cli, json, html, markdown, sarif")
         raise typer.Exit(code=1)

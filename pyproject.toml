@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nifra"
-version = "0.1.0"
+version = "0.2.0"
 description = "AI Application Security Autopilot — Exploit simulation, attack surface mapping & pipeline protection for LLM apps and AI agents"
 readme = "README.md"
 license = { file = "LICENSE" }

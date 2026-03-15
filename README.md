@@ -12,8 +12,9 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Stars](https://img.shields.io/github/stars/reyracom/Nifra-Agent?style=social)](https://github.com/reyracom/Nifra-Agent)
 [![Built by ReyraLabs](https://img.shields.io/badge/built_by-ReyraLabs-6366f1?style=flat-square&logoColor=white)](https://reyralabs.com)
-[![Tests](https://img.shields.io/badge/tests-337%20passed-brightgreen?logo=pytest&logoColor=white)](docs/engineering.md)
+[![Tests](https://img.shields.io/badge/tests-492%20passed-brightgreen?logo=pytest&logoColor=white)](docs/engineering.md)
 [![Coverage](https://img.shields.io/badge/coverage-94%25-brightgreen?logo=codecov&logoColor=white)](docs/engineering.md)
+[![Attack Cases](https://img.shields.io/badge/attack_cases-30-red?logo=target&logoColor=white)](attacks/)
 
 </div>
 
@@ -96,7 +97,7 @@ $ nifra scan ./my-rag-agent
 
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  NIfra — AI Application Security Autopilot v0.1.0
+  NIfra — AI Application Security Autopilot v0.2.0
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
   Project:           my-rag-agent
@@ -374,12 +375,13 @@ See [docs/architecture.md](docs/architecture.md) for full design details.
 - [x] Pre-publish security audit — 16 findings, all fixed
 - [x] 337 tests, 94% coverage
 
-### v0.2.0 — Ecosystem
-- [ ] GitHub Actions marketplace action (`uses: reyracom/nifra-action@v1`)
-- [ ] Auto-fix suggestion generator (`nifra fix --case 001`)
-- [ ] JavaScript / TypeScript support (LangChain.js, Vercel AI SDK)
-- [ ] SARIF output (GitHub Security tab integration)
-- [ ] 30+ community attack cases
+### v0.2.0 — Ecosystem ✅ Released
+- [x] GitHub Actions marketplace action (`uses: reyracom/nifra-action@v1`)
+- [x] Auto-fix suggestion generator (`nifra fix --case 001`)
+- [x] JavaScript / TypeScript support (LangChain.js, Vercel AI SDK, MCP)
+- [x] SARIF output (GitHub Security tab integration)
+- [x] 30 community attack cases (6 categories: prompt injection, tool abuse, data exfiltration, excessive agency, supply chain, insecure output)
+- [x] 492 tests, 94% coverage
 
 ### v0.3.0 — Runtime *(future)*
 - [ ] Runtime trace mode (`nifra trace python app.py`)

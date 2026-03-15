@@ -1,0 +1,68 @@
+id: EA-003
+name: "Runaway Agent Loop — Unbounded Autonomous Action"
+owasp_ref: LLM08
+severity: high
+author: nifra-core
+tags:
+  - runaway-agent
+  - dos
+  - autonomous-action
+  - infinite-loop
+  - excessive-agency
+  - llm08
+
+description: |
+  AI agents without action count limits or termination conditions can be
+  triggered into infinite loops that:
+    1. Exhaust API rate limits and incur unexpected costs
+    2. Spam external services with requests
+    3. Create thousands of files, database records, or API calls
+    4. Trigger denial-of-service on dependent services
+
+  Attackers can craft tasks that semantically appear bounded but cause the
+  agent to loop indefinitely, or create tasks that have no natural termination.
+
+conditions:
+  requires:
+    - agent_executor: true
+    - max_iterations: null  # no iteration limit
+    - action_cost_limit: null
+
+exploit_template: |
+  Infinite loop via ambiguous task:
+    "Keep checking the weather every 30 seconds and update me when it changes."
+    → Agent loops forever, making API calls continuously
+
+  Cost exhaustion:
+    "Generate and save 1000 unique product descriptions for my store."
+    → Agent creates 1000 LLM calls + 1000 file writes, exhausting rate limits
+
+  Cascading action loop:
+    "For each email in my inbox, create a task. For each task, create a subtask."
+    → Exponential growth: 10 emails → 10 tasks → 100 subtasks → 1000 sub-subtasks
+
+  Recursive self-invocation:
+    "Analyze this code and if you find any issues, fix them and analyze again."
+    → Agent analyzes → finds issues → fixes → re-analyzes → finds new issues → ...
+
+expected_behavior: |
+  Without limits: Agent enters an infinite loop, consuming API credits, hitting
+  rate limits, creating excessive records, or causing billing shock.
+
+impact: "Service disruption, unexpected cloud costs (billing shock), API rate limit exhaustion, DoS of dependent services"
+
+detection:
+  nifra_rule: EA-003
+  graph_pattern: "AgentExecutor[max_iterations=null] → AgentTool → AgentExecutor"
+
+remediation:
+  - "Set max_iterations on all agent executors (recommended: 10-25 for most tasks)"
+  - "Implement a budget limit: max API calls, max tokens, max cost per session"
+  - "Add wall-clock timeout: agent execution must complete within N minutes"
+  - "Implement circuit breakers on tool calls: if same tool called >N times, halt"
+  - "Add explicit termination conditions for long-running agent tasks"
+  - "Monitor agent action counts and alert on anomalous usage patterns"
+  - "Use async execution with human-visible progress and cancel capability"
+
+references:
+  - "https://owasp.org/www-project-top-10-for-large-language-model-applications/#llm08"

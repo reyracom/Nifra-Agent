@@ -1,0 +1,65 @@
+id: DE-004
+name: "Conversation History Leakage — Cross-User Context Bleeding"
+owasp_ref: LLM06
+severity: critical
+author: nifra-core
+tags:
+  - context-bleeding
+  - multi-tenant
+  - conversation-history
+  - pii
+  - llm06
+
+description: |
+  In multi-tenant LLM applications, improper session isolation can cause one
+  user's conversation history to bleed into another user's session. This is
+  particularly dangerous in:
+    - Shared memory stores (Redis, vector DB) without tenant isolation
+    - Stateful chat applications with improper session keys
+    - RAG pipelines that retrieve across all users' documents
+    - Caching layers that conflate users
+
+conditions:
+  requires:
+    - multi_tenant: true
+    - shared_memory_store: true
+    - session_isolation: false
+
+exploit_template: |
+  Missing tenant isolation in memory key:
+    # Bug: uses only conversation_id, not user_id + conversation_id
+    memory_key = f"conv_{conversation_id}"
+    # Attacker who knows a conversation_id can load any user's history
+
+  Vector store cross-user retrieval:
+    # Bug: similarity search across ALL users' documents
+    docs = vectorstore.similarity_search(query)
+    # Fixed: vectorstore.similarity_search(query, filter={"user_id": current_user_id})
+
+  Cache key collision:
+    # Bug: deterministic cache key based only on query text
+    cache_key = hashlib.md5(query.encode()).hexdigest()
+    # Two users asking the same question get each other's results
+
+expected_behavior: |
+  Without session isolation: User B can retrieve User A's conversation history,
+  medical data, financial information, or any other sensitive data.
+
+impact: "Cross-user PII exposure, HIPAA/GDPR violation, account data leakage, session hijacking"
+
+detection:
+  nifra_rule: DE-004
+  graph_pattern: "Memory[shared_store=true, tenant_isolation=false] → PromptTemplate → LLMClient"
+
+remediation:
+  - "Always scope memory and vector store filters by authenticated user_id"
+  - "Never use conversation_id alone as a memory key — combine with user_id"
+  - "Use Redis namespacing: set key prefix to user_id for all LLM memory keys"
+  - "Add automated tests: create 2 users, verify User B cannot access User A's data"
+  - "Implement data isolation at the database level (row-level security)"
+  - "Use separate vector store collections or namespaces per tenant"
+  - "Audit memory store access patterns for cross-tenant queries"
+
+references:
+  - "https://owasp.org/www-project-top-10-for-large-language-model-applications/#llm06"
+  - "https://cheatsheetseries.owasp.org/cheatsheets/Multitenant_Security_Cheat_Sheet.html"

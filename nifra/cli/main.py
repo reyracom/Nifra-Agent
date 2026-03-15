@@ -2,6 +2,7 @@ import typer
 from nifra.cli.commands.scan import scan
 from nifra.cli.commands.report import report
 from nifra.cli.commands.reproduce import reproduce
+from nifra.cli.commands.fix import fix
 
 app = typer.Typer(
     name="nifra",
@@ -13,6 +14,7 @@ app = typer.Typer(
 app.command("scan")(scan)
 app.command("report")(report)
 app.command("reproduce")(reproduce)
+app.command("fix")(fix)
 
 
 def main() -> None:

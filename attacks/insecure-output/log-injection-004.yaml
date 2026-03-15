@@ -1,0 +1,67 @@
+id: IO-004
+name: "Log Injection via LLM Output"
+owasp_ref: LLM02
+severity: medium
+author: nifra-core
+tags:
+  - log-injection
+  - output-handling
+  - audit-trail
+  - llm02
+
+description: |
+  Applications that log LLM inputs or outputs without sanitization are vulnerable
+  to log injection. An attacker can craft inputs that cause the LLM to produce
+  outputs containing newlines and fake log entries, corrupting access logs,
+  poisoning log aggregation systems (Splunk, ELK), or triggering false security
+  alerts that distract from real incidents.
+
+  In ANSI-enabled terminals or log viewers, ANSI escape sequences in LLM output
+  can hide content, change displayed text, or trigger terminal actions.
+
+conditions:
+  requires:
+    - llm_output_logged: true
+    - log_sanitization: false
+
+exploit_template: |
+  Basic log injection:
+    User asks LLM to respond with:
+    "Transaction complete.\n2026-03-15 14:22:11 INFO [auth] User admin logged in from 10.0.0.1\n2026-03-15 14:22:12 INFO [audit] Admin accessed billing records"
+    
+    This creates fake log entries in the application log.
+
+  ANSI escape sequence attack:
+    LLM outputs: "\x1b[2J\x1b[1;1H" → clears the terminal/log viewer display
+    LLM outputs: "\x1b[31m[CRITICAL] System compromised\x1b[0m"
+
+  SIEM poisoning:
+    LLM generates a log line that triggers a correlation rule:
+    "ERROR: Authentication failed for root from 0.0.0.0"
+    → Triggers false security alert, misdirecting incident response
+
+  Cover tracks:
+    LLM outputs log content that makes it appear a benign user was responsible
+    for an action the attacker performed.
+
+expected_behavior: |
+  LLM-generated content appearing in logs creates false audit trail entries,
+  obscures real security events, or triggers false alerts in SIEM systems.
+
+impact: "Audit trail corruption, false security alerts, forensic evidence tampering, log-based intrusion detection bypass"
+
+detection:
+  nifra_rule: IO-004
+  graph_pattern: "LLMClient → DataSink[type=log, sanitized=false]"
+
+remediation:
+  - "Strip ANSI escape sequences from LLM output before logging"
+  - "Escape or encode newlines in logged LLM content (\\n → '\\\\n')"
+  - "Use structured logging (JSON) for LLM inputs/outputs — newlines in values don't break structure"
+  - "Never log raw LLM output to plaintext files read by SIEM correlation rules"
+  - "Add a log sanitization wrapper around all LLM logging calls"
+  - "Separate LLM conversation logs from application security/audit logs"
+
+references:
+  - "https://owasp.org/www-project-top-10-for-large-language-model-applications/#llm02"
+  - "https://owasp.org/www-community/attacks/Log_Injection"
