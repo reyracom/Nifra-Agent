@@ -362,27 +362,30 @@ See [docs/architecture.md](docs/architecture.md) for full design details.
 
 ## Roadmap
 
-### v0.1.0 — Foundation
+### v0.1.0 — Foundation ✅ Released
 - [x] Project structure & architecture
-- [ ] Dependency + AST scanner (Python / LangChain / OpenAI)
-- [ ] Attack surface graph builder (NetworkX DAG)
-- [ ] AI exploit reasoning engine
-- [ ] CLI with 5-layer output format
-- [ ] Initial attack case library (10+ cases)
-- [ ] Playground vulnerable apps
+- [x] Dependency + AST scanner (Python / LangChain / OpenAI)
+- [x] Attack surface graph builder (NetworkX DAG)
+- [x] AI exploit reasoning engine
+- [x] CLI commands: `nifra scan`, `nifra report`, `nifra reproduce`
+- [x] JSON / HTML / Markdown / CLI reporters
+- [x] 5 initial attack cases (prompt injection, tool abuse, data exfiltration)
+- [x] Playground vulnerable apps (vulnerable-rag-agent, vulnerable-tool-agent)
+- [x] Pre-publish security audit — 16 findings, all fixed
+- [x] 337 tests, 94% coverage
 
-### v0.2.0 — Pipeline
-- [ ] GitHub Actions native integration
-- [ ] JSON / HTML / Markdown reporters
-- [ ] Auto-fix suggestion generator
-- [ ] JavaScript / TypeScript support
+### v0.2.0 — Ecosystem
+- [ ] GitHub Actions marketplace action (`uses: reyracom/nifra-action@v1`)
+- [ ] Auto-fix suggestion generator (`nifra fix --case 001`)
+- [ ] JavaScript / TypeScript support (LangChain.js, Vercel AI SDK)
+- [ ] SARIF output (GitHub Security tab integration)
 - [ ] 30+ community attack cases
 
 ### v0.3.0 — Runtime *(future)*
 - [ ] Runtime trace mode (`nifra trace python app.py`)
 - [ ] Anomaly detection for deployed AI apps
 - [ ] Agent kill-switch + rate limiting
-- [ ] SARIF output (GitHub Security tab)
+- [ ] Multi-agent / A2A protocol support
 
 ---
 
