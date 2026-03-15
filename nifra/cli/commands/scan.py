@@ -34,6 +34,10 @@ def scan(
         False, "--no-ai",
         help="Skip LLM reasoning — deterministic findings only (no OPENAI_API_KEY required).",
     ),
+    model: str = typer.Option(
+        "nvidia/nemotron-3-super-120b-a12b:free", "--model", "-m",
+        help="Model for AI reasoning. OpenRouter (default): nvidia/nemotron-3-super-120b-a12b:free, mistralai/mistral-7b-instruct:free, nvidia/nemotron-super-49b-v1:free. OpenAI: gpt-4o, gpt-4o-mini.",
+    ),
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Show detailed scan progress."),
 ) -> None:
     """
@@ -112,7 +116,7 @@ def scan(
             result = engine._build_deterministic_result(attack_surface)
         else:
             progress.update(task, description="Running AI exploit chain reasoning...")
-            engine = ReasoningEngine()
+            engine = ReasoningEngine(model=model)
             try:
                 result = engine.reason(attack_surface)
             except EnvironmentError as e:

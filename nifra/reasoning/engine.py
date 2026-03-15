@@ -6,6 +6,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 from nifra.graph.builder import AttackSurfaceGraph
 from nifra.reasoning.confidence import ConfidenceComponents, compute_hybrid_confidence
 
@@ -72,12 +78,16 @@ _FALLBACK_CHAIN_STEPS = [
 ]
 
 
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+DEFAULT_MODEL = "nvidia/nemotron-3-super-120b-a12b:free"
+
+
 class ReasoningEngine:
     """Orchestrates LLM-based exploit chain reasoning."""
 
     def __init__(
         self,
-        model: str = "gpt-4o",
+        model: str = DEFAULT_MODEL,
         temperature: float = 0.2,
     ) -> None:
         self.model = model
@@ -217,13 +227,23 @@ class ReasoningEngine:
     def _get_client(self):
         if self._client is None:
             import openai
-            api_key = os.environ.get("OPENAI_API_KEY")
-            if not api_key:
+            # OpenRouter takes priority if its key is set, or if model contains a slash (provider/model format)
+            openrouter_key = os.environ.get("OPENROUTER_API_KEY")
+            openai_key = os.environ.get("OPENAI_API_KEY")
+            is_openrouter_model = "/" in self.model
+
+            if openrouter_key and (is_openrouter_model or not openai_key):
+                self._client = openai.OpenAI(
+                    api_key=openrouter_key,
+                    base_url=OPENROUTER_BASE_URL,
+                )
+            elif openai_key:
+                self._client = openai.OpenAI(api_key=openai_key)
+            else:
                 raise EnvironmentError(
-                    "OPENAI_API_KEY not set. Set it to enable AI reasoning, "
+                    "No API key found. Set OPENROUTER_API_KEY (recommended) or OPENAI_API_KEY, "
                     "or use --no-ai for deterministic-only mode."
                 )
-            self._client = openai.OpenAI(api_key=api_key)
         return self._client
 
 
