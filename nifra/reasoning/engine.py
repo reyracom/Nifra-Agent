@@ -4,7 +4,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 try:
     from dotenv import load_dotenv
@@ -89,18 +89,27 @@ class ReasoningEngine:
         self,
         model: str = DEFAULT_MODEL,
         temperature: float = 0.2,
+        on_progress: Optional[Callable[[str], None]] = None,
     ) -> None:
         self.model = model
         self.temperature = temperature
         self._client = None
+        self._on_progress = on_progress or (lambda _: None)
+
+    def _emit(self, msg: str) -> None:
+        self._on_progress(msg)
 
     def reason(self, attack_surface: AttackSurfaceGraph) -> ReasoningResult:
         if not attack_surface.findings:
             return ReasoningResult()
 
         result = ReasoningResult(reasoning_model=self.model)
+        nodes = attack_surface.to_dict().get("nodes", [])
+
+        self._emit(f" Connecting to {self.model.split('/')[0] if '/' in self.model else 'OpenAI'}...")
 
         for i, finding in enumerate(attack_surface.findings):
+            self._emit(f"[{i+1}/{len(attack_surface.findings)}] Targeting finding {finding.rule_id} — {getattr(finding, 'rule_name', finding.rule_id)}")
             chain = self._reason_single_finding(
                 finding=finding,
                 graph_context=attack_surface.to_dict(),
@@ -126,11 +135,29 @@ class ReasoningEngine:
         except FileNotFoundError:
             prompt_template = _DEFAULT_PROMPT
 
+        nodes = graph_context.get("nodes", [])
+        edges = graph_context.get("edges", [])
+
+        # Emit live activity messages
+        self._emit(f"Reading codebase — {len(nodes)} nodes, {len(edges)} edges in threat graph")
+        for n in nodes[:6]:
+            label = n.get('label', n.get('id', '?'))
+            ntype = n.get('node_type', 'node')
+            src   = n.get('source_file', '')
+            self._emit(f"   ├─ [{ntype}] {label}  {('← ' + src) if src else ''}")
+        if len(nodes) > 6:
+            self._emit(f"   └─ ... and {len(nodes)-6} more nodes")
+
+        self._emit(f"Mapping trust boundaries for {finding.rule_id}...")
+        self._emit(f"Severity: {getattr(finding.severity, 'value', finding.severity).upper()}  |  Evidence count: {len(finding.evidence)}")
+        self._emit(f"Sending exploit simulation request to {self.model}...")
+        self._emit(f"Waiting for AI response (this may take 30–90s on free tier)...")
+
         graph_summary = json.dumps({
-            "node_count": len(graph_context.get("nodes", [])),
-            "edge_count": len(graph_context.get("edges", [])),
-            "nodes": graph_context.get("nodes", [])[:20],  # Cap for token budget
-            "edges": graph_context.get("edges", [])[:30],
+            "node_count": len(nodes),
+            "edge_count": len(edges),
+            "nodes": nodes[:20],
+            "edges": edges[:30],
         }, indent=2)
 
         finding_json = json.dumps(finding.to_dict(), indent=2)
@@ -158,6 +185,7 @@ class ReasoningEngine:
             ],
         )
 
+        self._emit(f"✅  Response received — parsing exploit chain JSON...")
         raw = response.choices[0].message.content or "{}"
         data = json.loads(raw)
 
